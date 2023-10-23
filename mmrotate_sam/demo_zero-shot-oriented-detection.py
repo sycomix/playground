@@ -56,8 +56,7 @@ def mask2rbox(mask):
     y, x = np.nonzero(mask)
     points = np.stack([x, y], axis=-1)
     (cx, cy), (w, h), a = cv2.minAreaRect(points)
-    r_bbox = np.array([cx, cy, w, h, a / 180 * np.pi])
-    return r_bbox
+    return np.array([cx, cy, w, h, a / 180 * np.pi])
 
 
 def get_instancedata_resultlist(r_bboxes,
@@ -71,8 +70,7 @@ def get_instancedata_resultlist(r_bboxes,
     results.labels = labels
     if result_with_mask:
         results.masks = masks.cpu().numpy()
-    results_list = [results]
-    return results_list
+    return [results]
 
 
 def main():

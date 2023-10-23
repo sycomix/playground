@@ -126,12 +126,12 @@ def __build_glip_model(args):
     cfg.merge_from_file(args.det_config)
     cfg.merge_from_list(['MODEL.WEIGHT', args.det_weight])
     cfg.merge_from_list(['MODEL.DEVICE', 'cpu'])
-    model = GLIPDemo(
+    return GLIPDemo(
         cfg,
         min_image_size=800,
         confidence_threshold=args.box_thr,
-        show_mask_heatmaps=False)
-    return model
+        show_mask_heatmaps=False,
+    )
 
 
 def __reset_cls_layer_weight(model, weight):
@@ -157,18 +157,18 @@ def __reset_cls_layer_weight(model, weight):
 
 def build_detecter(args):
     if 'GroundingDINO' in args.det_config:
-        detecter = __build_grounding_dino_model(args)
+        return __build_grounding_dino_model(args)
     elif 'glip' in args.det_config:
-        detecter = __build_glip_model(args)
+        return __build_glip_model(args)
     else:
         config = Config.fromfile(args.det_config)
         if 'init_cfg' in config.model.backbone:
             config.model.backbone.init_cfg = None
         if 'detic' in args.det_config and not args.use_detic_mask:
             config.model.roi_head.mask_head = None
-        detecter = init_detector(
-            config, args.det_weight, device='cpu', cfg_options={})
-    return detecter
+        return init_detector(
+            config, args.det_weight, device='cpu', cfg_options={}
+        )
 
 
 def create_positive_dict(tokenized, tokens_positive, labels):
@@ -201,15 +201,12 @@ def convert_grounding_to_od_logits(logits,
     assert logits.ndim == 2
     assert positive_map is not None
     scores = torch.zeros(logits.shape[0], num_classes).to(logits.device)
-    # 256 -> 80, average for each class
-    # score aggregation method
-    if score_agg == 'MEAN':  # True
-        for label_j in positive_map:
-            scores[:, label_j] = logits[:,
-                                        torch.LongTensor(positive_map[label_j]
-                                                         )].mean(-1)
-    else:
+    if score_agg != 'MEAN':
         raise NotImplementedError
+    for label_j in positive_map:
+        scores[:, label_j] = logits[:,
+                                    torch.LongTensor(positive_map[label_j]
+                                                     )].mean(-1)
     return scores
 
 
@@ -232,7 +229,7 @@ def run_detector(model, image_path, args):
         text_prompt = text_prompt.lower()
         text_prompt = text_prompt.strip()
         if not text_prompt.endswith('.'):
-            text_prompt = text_prompt + '.'
+            text_prompt = f'{text_prompt}.'
 
         # Original GroundingDINO use text-thr to get class name,
         # the result will always result in categories that we don't want,
@@ -276,13 +273,13 @@ def run_detector(model, image_path, args):
         logits_filt = logits_filt[filt_mask]  # num_filt, 256
         boxes_filt = boxes_filt[filt_mask]  # num_filt, 4
 
+        # build pred
+        pred_labels = []
+        pred_scores = []
         if args.apply_original_groudingdino:
             # get phrase
             tokenlizer = model.tokenizer
             tokenized = tokenlizer(text_prompt)
-            # build pred
-            pred_labels = []
-            pred_scores = []
             for logit, box in zip(logits_filt, boxes_filt):
                 pred_phrase = get_phrases_from_posmap(logit > args.text_thr,
                                                       tokenized, tokenlizer)
@@ -290,9 +287,6 @@ def run_detector(model, image_path, args):
                 pred_scores.append(str(logit.max().item())[:4])
         else:
             scores, pred_phrase_idxs = logits_filt.max(1)
-            # build pred
-            pred_labels = []
-            pred_scores = []
             for score, pred_phrase_idx in zip(scores, pred_phrase_idxs):
                 pred_labels.append(label_name[pred_phrase_idx])
                 pred_scores.append(str(score.item())[:4])
@@ -314,7 +308,7 @@ def run_detector(model, image_path, args):
         text_prompt = text_prompt.lower()
         text_prompt = text_prompt.strip()
         if not text_prompt.endswith('.') and not args.apply_other_text:
-            text_prompt = text_prompt + '.'
+            text_prompt = f'{text_prompt}.'
 
         custom_vocabulary = text_prompt[:-1].split('.')
         label_name = [c.strip() for c in custom_vocabulary]
@@ -338,7 +332,7 @@ def run_detector(model, image_path, args):
                     else:
                         new_labels.append('object')
             else:
-                new_labels = ['object' for i in labels]
+                new_labels = ['object' for _ in labels]
         else:
             new_labels = [label_name[i] for i in labels]
 
@@ -406,7 +400,7 @@ def draw_and_save(image,
                 color = np.concatenate(
                     [np.random.random(3), np.array([0.6])], axis=0)
             else:
-                color = np.array([30 / 255, 144 / 255, 255 / 255, 0.6])
+                color = np.array([30 / 255, 144 / 255, 1, 0.6])
             h, w = mask.shape[-2:]
             mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
             plt.gca().imshow(mask_image)

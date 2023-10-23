@@ -75,15 +75,17 @@ class GLIPDemo:
         normalize_transform = T.Normalize(
             mean=cfg.INPUT.PIXEL_MEAN, std=cfg.INPUT.PIXEL_STD)
 
-        transform = T.Compose([
-            T.ToPILImage(),
-            T.Resize(self.min_image_size)
-            if self.min_image_size is not None else lambda x: x,
-            T.ToTensor(),
-            to_bgr_transform,
-            normalize_transform,
-        ])
-        return transform
+        return T.Compose(
+            [
+                T.ToPILImage(),
+                T.Resize(self.min_image_size)
+                if self.min_image_size is not None
+                else lambda x: x,
+                T.ToTensor(),
+                to_bgr_transform,
+                normalize_transform,
+            ]
+        )
 
     def build_tokenizer(self):
         cfg = self.cfg
@@ -92,14 +94,17 @@ class GLIPDemo:
             tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
         elif cfg.MODEL.LANGUAGE_BACKBONE.TOKENIZER_TYPE == 'clip':
             from transformers import CLIPTokenizerFast
-            if cfg.MODEL.DYHEAD.FUSE_CONFIG.MLM_LOSS:
-                tokenizer = CLIPTokenizerFast.from_pretrained(
+            tokenizer = (
+                CLIPTokenizerFast.from_pretrained(
                     'openai/clip-vit-base-patch32',
                     from_slow=True,
-                    mask_token='ðŁĴĳ</w>')
-            else:
-                tokenizer = CLIPTokenizerFast.from_pretrained(
-                    'openai/clip-vit-base-patch32', from_slow=True)
+                    mask_token='ðŁĴĳ</w>',
+                )
+                if cfg.MODEL.DYHEAD.FUSE_CONFIG.MLM_LOSS
+                else CLIPTokenizerFast.from_pretrained(
+                    'openai/clip-vit-base-patch32', from_slow=True
+                )
+            )
         return tokenizer
 
     def run_ner(self, caption):
@@ -115,8 +120,10 @@ class GLIPDemo:
         for entity, label in zip(relevant_phrases, labels):
             try:
                 # search all occurrences and mark them as different entities
-                for m in re.finditer(entity, caption.lower()):
-                    tokens_positive.append([[m.start(), m.end()]])
+                tokens_positive.extend(
+                    [[m.start(), m.end()]]
+                    for m in re.finditer(entity, caption.lower())
+                )
             except:  # noqa
                 print('noun entities:', noun_phrases)
                 print('entity:', entity)
@@ -131,8 +138,7 @@ class GLIPDemo:
         else:
             predictions = self.compute_prediction(original_image,
                                                   original_caption)
-        top_predictions = self._post_process_fixed_thresh(predictions)
-        return top_predictions
+        return self._post_process_fixed_thresh(predictions)
 
     def run_on_web_image(self,
                          original_image,
@@ -207,15 +213,11 @@ class GLIPDemo:
                 captions=[objects_query],
                 positive_map=positive_map_label_to_token)
             predictions = [o.to(self.cpu_device) for o in predictions]
-        print(
-            'inference time per image: {}'.format(timeit.time.perf_counter() -
-                                                  tic))
-
-        # always single image is passed at a time
-        prediction = predictions[0]
+        print(f'inference time per image: {timeit.time.perf_counter() - tic}')
 
         # reshape prediction (a BoxList) into the original image size
         height, width = original_image.shape[:-1]
+        prediction = predictions[0]
         prediction = prediction.resize((width, height))
 
         if prediction.has_field('mask'):
@@ -264,13 +266,9 @@ class GLIPDemo:
         # process positive map
         positive_map = create_positive_map(tokenized, tokens_positive)
 
-        if self.cfg.MODEL.RPN_ARCHITECTURE == 'VLDYHEAD':
-            plus = 1
-        else:
-            plus = 0
-
+        plus = 1 if self.cfg.MODEL.RPN_ARCHITECTURE == 'VLDYHEAD' else 0
         positive_map_label_to_token = \
-            create_positive_map_label_to_token_from_positive_map(
+                create_positive_map_label_to_token_from_positive_map(
                 positive_map, plus=plus)
         self.plus = plus
         self.positive_map_label_to_token = positive_map_label_to_token
@@ -283,15 +281,11 @@ class GLIPDemo:
                 captions=[original_caption],
                 positive_map=positive_map_label_to_token)
             predictions = [o.to(self.cpu_device) for o in predictions]
-        print(
-            'inference time per image: {}'.format(timeit.time.perf_counter() -
-                                                  tic))
-
-        # always single image is passed at a time
-        prediction = predictions[0]
+        print(f'inference time per image: {timeit.time.perf_counter() - tic}')
 
         # reshape prediction (a BoxList) into the original image size
         height, width = original_image.shape[:-1]
+        prediction = predictions[0]
         prediction = prediction.resize((width, height))
 
         if prediction.has_field('mask'):
@@ -327,9 +321,10 @@ class GLIPDemo:
         labels = predictions.get_field('labels').tolist()
         thresh = scores.clone()
         for i, lb in enumerate(labels):
-            if isinstance(self.confidence_threshold, float):
-                thresh[i] = threshold
-            elif len(self.confidence_threshold) == 1:
+            if (
+                isinstance(self.confidence_threshold, float)
+                or len(self.confidence_threshold) == 1
+            ):
                 thresh[i] = threshold
             else:
                 thresh[i] = self.confidence_threshold[lb - 1]
@@ -392,10 +387,7 @@ class GLIPDemo:
         scores = predictions.get_field('scores').tolist()
         labels = predictions.get_field('labels').tolist()
         new_labels = []
-        if self.cfg.MODEL.RPN_ARCHITECTURE == 'VLDYHEAD':
-            plus = 1
-        else:
-            plus = 0
+        plus = 1 if self.cfg.MODEL.RPN_ARCHITECTURE == 'VLDYHEAD' else 0
         self.plus = plus
         if self.entities and self.plus:
             for i in labels:
@@ -405,7 +397,7 @@ class GLIPDemo:
                     new_labels.append('object')
             # labels = [self.entities[i - self.plus] for i in labels ]
         else:
-            new_labels = ['object' for i in labels]
+            new_labels = ['object' for _ in labels]
         boxes = predictions.bbox
 
         template = '{}:{:.2f}'
@@ -443,9 +435,7 @@ class GLIPDemo:
                 thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
             image = cv2.drawContours(image, contours, -1, color, 2)
 
-        composite = image
-
-        return composite
+        return image
 
     def create_mask_montage(self, image, predictions):
         masks = predictions.get_field('mask')
@@ -476,11 +466,10 @@ class GLIPDemo:
 
 
 def create_positive_map_label_to_token_from_positive_map(positive_map, plus=0):
-    positive_map_label_to_token = {}
-    for i in range(len(positive_map)):
-        positive_map_label_to_token[i + plus] = torch.nonzero(
-            positive_map[i], as_tuple=True)[0].tolist()
-    return positive_map_label_to_token
+    return {
+        i + plus: torch.nonzero(positive_map[i], as_tuple=True)[0].tolist()
+        for i in range(len(positive_map))
+    }
 
 
 def create_positive_map(tokenized, tokens_positive):
@@ -529,12 +518,11 @@ def find_noun_phrases(caption: str) -> List[str]:
     cp = nltk.RegexpParser(grammar)
     result = cp.parse(pos_tags)
 
-    noun_phrases = list()
-    for subtree in result.subtrees():
-        if subtree.label() == 'NP':
-            noun_phrases.append(' '.join(t[0] for t in subtree.leaves()))
-
-    return noun_phrases
+    return [
+        ' '.join(t[0] for t in subtree.leaves())
+        for subtree in result.subtrees()
+        if subtree.label() == 'NP'
+    ]
 
 
 def remove_punctuation(text: str) -> str:

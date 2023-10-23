@@ -91,12 +91,12 @@ def __build_glip_model(args):
     cfg.merge_from_file(args.det_config)
     cfg.merge_from_list(['MODEL.WEIGHT', args.det_weight])
     cfg.merge_from_list(['MODEL.DEVICE', 'cpu'])
-    model = GLIPDemo(
+    return GLIPDemo(
         cfg,
         min_image_size=800,
         confidence_threshold=args.box_thr,
-        show_mask_heatmaps=False)
-    return model
+        show_mask_heatmaps=False,
+    )
 
 
 def apply_exif_orientation(image):
@@ -124,9 +124,7 @@ def apply_exif_orientation(image):
         7: Image.TRANSVERSE,
         8: Image.ROTATE_90,
     }.get(orientation)
-    if method is not None:
-        return image.transpose(method)
-    return image
+    return image.transpose(method) if method is not None else image
 
 
 def build_detecter(args):
@@ -178,15 +176,12 @@ def convert_grounding_to_od_logits(logits,
     assert logits.ndim == 2
     assert positive_map is not None
     scores = torch.zeros(logits.shape[0], num_classes).to(logits.device)
-    # 256 -> 80, average for each class
-    # score aggregation method
-    if score_agg == 'MEAN':  # True
-        for label_j in positive_map:
-            scores[:, label_j] = logits[:,
-                                 torch.LongTensor(positive_map[label_j]
-                                                  )].mean(-1)
-    else:
+    if score_agg != 'MEAN':
         raise NotImplementedError
+    for label_j in positive_map:
+        scores[:, label_j] = logits[:,
+                             torch.LongTensor(positive_map[label_j]
+                                              )].mean(-1)
     return scores
 
 
@@ -241,7 +236,7 @@ def run(det_model, blip_model, blip_processor, args):
         text_prompt = text_prompt.replace(',', '.')
 
         if not text_prompt.endswith('. '):
-            text_prompt = text_prompt + ' . '
+            text_prompt = f'{text_prompt} . '
 
         custom_vocabulary = text_prompt.split('.')
         label_name = [c.strip() for c in custom_vocabulary]
@@ -310,7 +305,7 @@ def run(det_model, blip_model, blip_processor, args):
         text_prompt = text_prompt.replace(',', '.')
 
         if not text_prompt.endswith('. '):
-            text_prompt = text_prompt + ' . '
+            text_prompt = f'{text_prompt} . '
 
         top_predictions = det_model.inference(image, text_prompt)
         scores = top_predictions.get_field('scores').tolist()
@@ -323,7 +318,7 @@ def run(det_model, blip_model, blip_processor, args):
                 else:
                     new_labels.append('object')
         else:
-            new_labels = ['object' for i in labels]
+            new_labels = ['object' for _ in labels]
         pred_dict['labels'] = new_labels
         pred_dict['scores'] = scores
         pred_dict['boxes'] = top_predictions.bbox

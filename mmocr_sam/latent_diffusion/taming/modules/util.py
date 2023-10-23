@@ -3,8 +3,7 @@ import torch.nn as nn
 
 
 def count_params(model):
-    total_params = sum(p.numel() for p in model.parameters())
-    return total_params
+    return sum(p.numel() for p in model.parameters())
 
 
 class ActNorm(nn.Module):
@@ -75,9 +74,8 @@ class ActNorm(nn.Module):
                     "Initializing ActNorm in reverse direction is "
                     "disabled by default. Use allow_reverse_init=True to enable."
                 )
-            else:
-                self.initialize(output)
-                self.initialized.fill_(1)
+            self.initialize(output)
+            self.initialized.fill_(1)
 
         if len(output.shape) == 2:
             output = output[:,:,None,None]
@@ -109,9 +107,7 @@ class Labelator(AbstractEncoder):
 
     def encode(self, c):
         c = c[:,None]
-        if self.quantize_interface:
-            return c, None, [None, None, c.long()]
-        return c
+        return (c, None, [None, None, c.long()]) if self.quantize_interface else c
 
 
 class SOSProvider(AbstractEncoder):
@@ -125,6 +121,4 @@ class SOSProvider(AbstractEncoder):
         # get batch size from data and replicate sos_token
         c = torch.ones(x.shape[0], 1)*self.sos_token
         c = c.long().to(x.device)
-        if self.quantize_interface:
-            return c, None, [None, None, c]
-        return c
+        return (c, None, [None, None, c]) if self.quantize_interface else c

@@ -195,21 +195,18 @@ def MMEngine_build_dataloader(dataloader: Dict,
     collate_fn_type = collate_fn_cfg.pop('type')
     collate_fn = FUNCTIONS.get(collate_fn_type)
     collate_fn = partial(collate_fn, **collate_fn_cfg)  # type: ignore
-    data_loader = DataLoader(
+    return DataLoader(
         dataset=dataset,
         sampler=sampler if batch_sampler is None else None,
         batch_sampler=batch_sampler,
         collate_fn=collate_fn,
         worker_init_fn=init_fn,
-        **dataloader_cfg)
-    return data_loader
+        **dataloader_cfg
+    )
 
 
 def MMEngine_build_evaluator(evaluator: Dict) -> Evaluator:
-    # if `metrics` in dict keys, it means to build customized evalutor
-    if 'metrics' in evaluator:
-        evaluator.setdefault('type', 'Evaluator')
-        return EVALUATOR.build(evaluator)
-    # otherwise, default evalutor will be built
-    else:
+    if 'metrics' not in evaluator:
         return Evaluator(evaluator)  # type: ignore
+    evaluator.setdefault('type', 'Evaluator')
+    return EVALUATOR.build(evaluator)

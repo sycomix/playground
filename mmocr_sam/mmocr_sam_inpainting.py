@@ -76,8 +76,7 @@ def parse_args():
         help="Select the index of the text to inpaint")
     parser.add_argument(
         "--show", action='store_true', help="whether to show the result")
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 if __name__ == '__main__':

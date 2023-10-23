@@ -10,15 +10,15 @@ from ldm.models.diffusion.ddim import DDIMSampler
 
 def make_batch(image, mask_pil_image, img_size, device):
     if isinstance(image, str):
-        if img_size is not None:
-            image = np.array(Image.open(image).convert("RGB").resize(img_size))
-        else:
-            image = np.array(Image.open(image).convert("RGB")) # need to resize to a image_size
+        image = (
+            np.array(Image.open(image).convert("RGB").resize(img_size))
+            if img_size is not None
+            else np.array(Image.open(image).convert("RGB"))
+        )
+    elif img_size is not None:
+        image = np.array(image.convert("RGB").resize(img_size))
     else:
-        if img_size is not None:
-            image = np.array(image.convert("RGB").resize(img_size))
-        else:
-            image = np.array(image.convert("RGB")) # need to resize to a image_size
+        image = np.array(image.convert("RGB")) # need to resize to a image_size
     image = image.astype(np.float32) / 255.0
     image = image[None].transpose(0, 3, 1, 2)
     image = torch.from_numpy(image)

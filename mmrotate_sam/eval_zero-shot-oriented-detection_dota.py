@@ -149,8 +149,7 @@ def mask2rbox(mask):
     y, x = np.nonzero(mask)
     points = np.stack([x, y], axis=-1)
     (cx, cy), (w, h), a = cv2.minAreaRect(points)
-    r_bbox = np.array([cx, cy, w, h, a / 180 * np.pi])
-    return r_bbox
+    return np.array([cx, cy, w, h, a / 180 * np.pi])
 
 
 def get_instancedata_resultlist(r_bboxes,
@@ -164,8 +163,7 @@ def get_instancedata_resultlist(r_bboxes,
     results.labels = labels
     if result_with_mask:
         results.masks = masks.cpu().numpy()
-    results_list = [results]
-    return results_list
+    return [results]
 
 
 def add_pred_to_datasample(results_list, data_samples):
@@ -177,10 +175,7 @@ def add_pred_to_datasample(results_list, data_samples):
 
 if __name__ == '__main__':
     args = parse_args()
-    if args.launcher == 'none':
-        _distributed = False
-    else:
-        _distributed = True
+    _distributed = args.launcher != 'none'
     if _distributed and not is_distributed():
         init_dist(args.launcher)
 
@@ -217,8 +212,7 @@ if __name__ == '__main__':
         progress_bar = ProgressBar(len(dataloader))
 
     det_model.eval()
-    for i, data in enumerate(dataloader):
-
+    for data in dataloader:
         evaluator = single_sample_step(data, det_model, sam_model, evaluator,
                                        args)
         if get_rank() == 0:

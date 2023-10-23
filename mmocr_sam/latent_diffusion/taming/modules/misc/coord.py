@@ -10,7 +10,7 @@ class CoordStage(object):
 
     def encode(self, c):
         """fake vqmodel interface"""
-        assert 0.0 <= c.min() and c.max() <= 1.0
+        assert c.min() >= 0.0 and c.max() <= 1.0
         b,ch,h,w = c.shape
         assert ch == 1
 
@@ -26,6 +26,6 @@ class CoordStage(object):
 
     def decode(self, c):
         c = c/self.n_embed
-        c = torch.nn.functional.interpolate(c, scale_factor=self.down_factor,
-                                            mode="nearest")
-        return c
+        return torch.nn.functional.interpolate(
+            c, scale_factor=self.down_factor, mode="nearest"
+        )

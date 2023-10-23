@@ -92,8 +92,7 @@ def parse_args():
         default='configs/play_controlnet_animation_sam_config.py',
         help='path to config file contains `model` cfg of the detector')
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 if __name__ == '__main__':

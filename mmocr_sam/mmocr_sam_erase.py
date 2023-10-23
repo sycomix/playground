@@ -122,8 +122,7 @@ def parse_args():
         default=50,
         help='If use latetn-diffusion for erasing, choose the number of '
         'ddim sampling steps')
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def show_sam_result(img, masks, rec_texts, det_polygons, args):
@@ -148,15 +147,14 @@ def show_mask(mask, ax, random_color=False):
     if random_color:
         color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
     else:
-        color = np.array([30 / 255, 144 / 255, 255 / 255, 0.6])
+        color = np.array([30 / 255, 144 / 255, 1, 0.6])
     h, w = mask.shape[-2:]
     mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
     ax.imshow(mask_image)
 
 
 def numpy2PIL(numpy_image):
-    out = Image.fromarray(numpy_image.astype(np.uint8))
-    return out
+    return Image.fromarray(numpy_image.astype(np.uint8))
 
 
 def multi_mask2one_mask(masks):
@@ -245,8 +243,7 @@ if __name__ == '__main__':
             kernel = np.ones((5, 5), np.int8)
             whole_mask = cv2.dilate(
                 mask_img, kernel, iterations=args.dilate_iteration)
-            cv2.imwrite(
-                os.path.join(args.outdir, f'whole_mask.jpg'), whole_mask)
+            cv2.imwrite(os.path.join(args.outdir, 'whole_mask.jpg'), whole_mask)
             # Show result
             show_sam_result(
                 img=img,
@@ -270,8 +267,7 @@ if __name__ == '__main__':
                 ]
                 poly = [[x, y] for x, y in zip(px, py)]
                 cv2.fillPoly(whole_mask, [np.array(poly)], (255, 255, 255))
-            cv2.imwrite(
-                os.path.join(args.outdir, f'whole_mask.jpg'), whole_mask)
+            cv2.imwrite(os.path.join(args.outdir, 'whole_mask.jpg'), whole_mask)
 
         if args.diffusion_model == "stable-diffusion":
             # Data preparation
@@ -282,16 +278,13 @@ if __name__ == '__main__':
 
             # Stable Diffusion for Erasing
             start = time.time()
-            if args.prompt is not None:
-                prompt = args.prompt
-            else:
-                prompt = 'No text, clean background'
+            prompt = 'No text, clean background' if args.prompt is None else args.prompt
             image = pipe(
                 prompt=prompt, image=sd_img, mask_image=sd_mask_img).images[0]
             end = time.time()
             # Save image
             image = image.resize((w, h))
-            image.save(os.path.join(args.outdir, f'erase_output.jpg'))
+            image.save(os.path.join(args.outdir, 'erase_output.jpg'))
             print(
                 f"The Stable Diffusion for erasing the text has finished, costing time {end-start}"
             )

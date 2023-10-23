@@ -27,8 +27,10 @@ def get_file_list(source_root: str) -> [list, dict]:
     source_file_path_list = []
     if is_dir:
         # when input source is dir
-        for file in scandir(source_root, IMG_EXTENSIONS, recursive=True):
-            source_file_path_list.append(os.path.join(source_root, file))
+        source_file_path_list.extend(
+            os.path.join(source_root, file)
+            for file in scandir(source_root, IMG_EXTENSIONS, recursive=True)
+        )
     elif is_url:
         # when input source is url
         filename = os.path.basename(
@@ -89,6 +91,4 @@ def apply_exif_orientation(image):
         7: Image.TRANSVERSE,
         8: Image.ROTATE_90,
     }.get(orientation)
-    if method is not None:
-        return image.transpose(method)
-    return image
+    return image.transpose(method) if method is not None else image

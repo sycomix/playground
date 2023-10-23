@@ -19,8 +19,7 @@ def parse_args():
     parser.add_argument('--classes',default=None, help='Classes list of the dataset, if None please check the output.')
     parser.add_argument('--out_config',default=None, choices=['mask-rcnn_r50_fpn','rtmdet-ins_s',None],help='config mode')
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 coco_format = {}
@@ -57,7 +56,7 @@ def rle2mask(rle,height, width):
 def format_to_coco(args):
     # 读取label studio格式的JSON文件
     json_file_path=args.json_file_path
-    
+
     with open(json_file_path, 'r') as file:
         contents = json.loads(file.read())
     if sys.platform == 'linux':
@@ -86,7 +85,7 @@ def format_to_coco(args):
             "id": len(coco_format["categories"]),
             "name": category
             })
-    
+
     index_cnt=0
     # 遍历每个标注
     for index_annotation in tqdm(range(len(contents))):
@@ -121,7 +120,7 @@ def format_to_coco(args):
                     new_contours.extend(list(contour))
                 new_contours = np.array(new_contours)
                 x, y, w, h = cv2.boundingRect(new_contours)
-                
+
                 bbox = [x, y, w, h]
                 area = w * h
 
@@ -134,7 +133,9 @@ def format_to_coco(args):
                 })
 
                 # 检查类别是否已经添加到categories变量中，如果没有，将其添加到categories变量
-                if not any(d["name"] == category for d in coco_format["categories"]):
+                if all(
+                    d["name"] != category for d in coco_format["categories"]
+                ):
                     coco_format["categories"].append({
                         "id": len(coco_format["categories"]),
                         "name": category
@@ -149,7 +150,7 @@ def format_to_coco(args):
                     "bbox": bbox,
                     "area": area,
                     'iscrowd': 0#rle format
-                    
+
                 })
                 index_cnt+=1
             image_from=os.path.join(image_path_from,image_json_name_)

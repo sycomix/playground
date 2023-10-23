@@ -20,15 +20,14 @@ def adopt_weight(weight, global_step, threshold=0, value=0.):
 def hinge_d_loss(logits_real, logits_fake):
     loss_real = torch.mean(F.relu(1. - logits_real))
     loss_fake = torch.mean(F.relu(1. + logits_fake))
-    d_loss = 0.5 * (loss_real + loss_fake)
-    return d_loss
+    return 0.5 * (loss_real + loss_fake)
 
 
 def vanilla_d_loss(logits_real, logits_fake):
-    d_loss = 0.5 * (
-        torch.mean(torch.nn.functional.softplus(-logits_real)) +
-        torch.mean(torch.nn.functional.softplus(logits_fake)))
-    return d_loss
+    return 0.5 * (
+        torch.mean(torch.nn.functional.softplus(-logits_real))
+        + torch.mean(torch.nn.functional.softplus(logits_fake))
+    )
 
 
 class VQLPIPSWithDiscriminator(nn.Module):
@@ -106,15 +105,16 @@ class VQLPIPSWithDiscriminator(nn.Module):
             disc_factor = adopt_weight(self.disc_factor, global_step, threshold=self.discriminator_iter_start)
             loss = nll_loss + d_weight * disc_factor * g_loss + self.codebook_weight * codebook_loss.mean()
 
-            log = {"{}/total_loss".format(split): loss.clone().detach().mean(),
-                   "{}/quant_loss".format(split): codebook_loss.detach().mean(),
-                   "{}/nll_loss".format(split): nll_loss.detach().mean(),
-                   "{}/rec_loss".format(split): rec_loss.detach().mean(),
-                   "{}/p_loss".format(split): p_loss.detach().mean(),
-                   "{}/d_weight".format(split): d_weight.detach(),
-                   "{}/disc_factor".format(split): torch.tensor(disc_factor),
-                   "{}/g_loss".format(split): g_loss.detach().mean(),
-                   }
+            log = {
+                f"{split}/total_loss": loss.clone().detach().mean(),
+                f"{split}/quant_loss": codebook_loss.detach().mean(),
+                f"{split}/nll_loss": nll_loss.detach().mean(),
+                f"{split}/rec_loss": rec_loss.detach().mean(),
+                f"{split}/p_loss": p_loss.detach().mean(),
+                f"{split}/d_weight": d_weight.detach(),
+                f"{split}/disc_factor": torch.tensor(disc_factor),
+                f"{split}/g_loss": g_loss.detach().mean(),
+            }
             return loss, log
 
         if optimizer_idx == 1:
@@ -129,8 +129,9 @@ class VQLPIPSWithDiscriminator(nn.Module):
             disc_factor = adopt_weight(self.disc_factor, global_step, threshold=self.discriminator_iter_start)
             d_loss = disc_factor * self.disc_loss(logits_real, logits_fake)
 
-            log = {"{}/disc_loss".format(split): d_loss.clone().detach().mean(),
-                   "{}/logits_real".format(split): logits_real.detach().mean(),
-                   "{}/logits_fake".format(split): logits_fake.detach().mean()
-                   }
+            log = {
+                f"{split}/disc_loss": d_loss.clone().detach().mean(),
+                f"{split}/logits_real": logits_real.detach().mean(),
+                f"{split}/logits_fake": logits_fake.detach().mean(),
+            }
             return d_loss, log

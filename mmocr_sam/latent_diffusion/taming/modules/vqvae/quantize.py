@@ -206,8 +206,7 @@ class GumbelQuantize(nn.Module):
         if self.remap is not None:
             indices = self.unmap_to_all(indices)
         one_hot = F.one_hot(indices, num_classes=self.n_embed).permute(0, 3, 1, 2).float()
-        z_q = einsum('b n h w, n d -> b d h w', one_hot, self.embed.weight)
-        return z_q
+        return einsum('b n h w, n d -> b d h w', one_hot, self.embed.weight)
 
 
 class VectorQuantizer2(nn.Module):

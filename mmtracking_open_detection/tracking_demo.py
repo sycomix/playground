@@ -142,26 +142,26 @@ def __build_glip_model(args):
     cfg.merge_from_file(args.det_config)
     cfg.merge_from_list(['MODEL.WEIGHT', args.det_weight])
     cfg.merge_from_list(['MODEL.DEVICE', 'cpu'])
-    model = GLIPDemo(
+    return GLIPDemo(
         cfg,
         min_image_size=800,
         confidence_threshold=args.box_thr,
-        show_mask_heatmaps=False)
-    return model
+        show_mask_heatmaps=False,
+    )
 
 
 def build_detecter(args):
     if 'GroundingDINO' in args.det_config:
-        detecter = __build_grounding_dino_model(args)
+        return __build_grounding_dino_model(args)
     elif 'glip' in args.det_config:
-        detecter = __build_glip_model(args)
+        return __build_glip_model(args)
     else:
         config = Config.fromfile(args.det_config)
         if 'init_cfg' in config.model.backbone:
             config.model.backbone.init_cfg = None
-        detecter = init_detector(
-            config, args.det_weight, device='cpu', cfg_options={})
-    return detecter
+        return init_detector(
+            config, args.det_weight, device='cpu', cfg_options={}
+        )
 
 
 def create_positive_dict(tokenized, tokens_positive, labels):
@@ -194,15 +194,12 @@ def convert_grounding_to_od_logits(logits,
     assert logits.ndim == 2
     assert positive_map is not None
     scores = torch.zeros(logits.shape[0], num_classes).to(logits.device)
-    # 256 -> 80, average for each class
-    # score aggregation method
-    if score_agg == 'MEAN':  # True
-        for label_j in positive_map:
-            scores[:, label_j] = logits[:,
-                                        torch.LongTensor(positive_map[label_j]
-                                                         )].mean(-1)
-    else:
+    if score_agg != 'MEAN':
         raise NotImplementedError
+    for label_j in positive_map:
+        scores[:, label_j] = logits[:,
+                                    torch.LongTensor(positive_map[label_j]
+                                                     )].mean(-1)
     return scores
 
 
@@ -351,7 +348,7 @@ def main():
     text_prompt = text_prompt.lower()
     text_prompt = text_prompt.strip()
     if not text_prompt.endswith('.'):
-        text_prompt = text_prompt + '.'
+        text_prompt = f'{text_prompt}.'
     args.text_prompt = text_prompt
 
     # custom label name
@@ -406,13 +403,12 @@ def main():
                 image_new = apply_exif_orientation(image_new)
             else:
                 image_new = cv2.imread(image_path)
+        elif 'GroundingDINO' in args.det_config:
+            image_new = Image.fromarray(
+                cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+            image_new = apply_exif_orientation(image_new)
         else:
-            if 'GroundingDINO' in args.det_config:
-                image_new = Image.fromarray(
-                    cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-                image_new = apply_exif_orientation(image_new)
-            else:
-                image_new = img
+            image_new = img
 
         pred_instances = run_detector(det_model, image_new, args, label_name)
 

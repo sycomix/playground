@@ -24,8 +24,7 @@ def parse_args():
         type=str,
         nargs='+',
         help='The suffix of images to be excluded, such as "png" and "bmp"')
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def collect_image_infos(path, exclude_extensions=None):
@@ -48,7 +47,6 @@ def collect_image_infos(path, exclude_extensions=None):
 
 
 def cvt_to_coco_json(img_infos, classes):
-    image_id = 0
     coco = dict()
     coco['images'] = []
     coco['type'] = 'instance'
@@ -65,7 +63,7 @@ def cvt_to_coco_json(img_infos, classes):
         category_item['name'] = str(name)
         coco['categories'].append(category_item)
 
-    for img_dict in img_infos:
+    for image_id, img_dict in enumerate(img_infos):
         file_name = img_dict['filename']
         assert file_name not in image_set
         image_item = dict()
@@ -76,7 +74,6 @@ def cvt_to_coco_json(img_infos, classes):
         coco['images'].append(image_item)
         image_set.add(file_name)
 
-        image_id += 1
     return coco
 
 

@@ -43,6 +43,4 @@ def apply_exif_orientation(image):
         7: Image.TRANSVERSE,
         8: Image.ROTATE_90,
     }.get(orientation)
-    if method is not None:
-        return image.transpose(method)
-    return image
+    return image.transpose(method) if method is not None else image

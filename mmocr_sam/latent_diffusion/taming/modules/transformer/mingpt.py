@@ -117,9 +117,7 @@ class Block(nn.Module):
 
         x = x + attn
         x = x + self.mlp(self.ln2(x))
-        if layer_past is not None or return_present:
-            return x, present
-        return x
+        return (x, present) if layer_past is not None or return_present else x
 
 
 class GPT(nn.Module):
@@ -394,8 +392,7 @@ class KMeans(nn.Module):
             x = x.reshape(bs,c,h*w,1)
             C = self.C.permute(1,0)
             C = C.reshape(1,c,1,self.ncluster)
-            a = ((x-C)**2).sum(1).argmin(-1) # bs, h*w indices
-            return a
+            return ((x-C)**2).sum(1).argmin(-1)
         else:
             # flatten
             bs, HW = x.shape

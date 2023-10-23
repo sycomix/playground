@@ -30,8 +30,7 @@ def load_my_model(device="cuda:0",sam_config="vit_b",sam_checkpoint_file="sam_vi
         """
         sam = sam_model_registry[sam_config](checkpoint=sam_checkpoint_file)
         sam.to(device=device)
-        predictor = SamPredictor(sam)
-        return predictor
+        return SamPredictor(sam)
 
 
 
@@ -156,150 +155,145 @@ class MMDetection(LabelStudioMLBase):
 
     def predict(self, tasks, **kwargs):
 
-        predictor = self.PREDICTOR
+            predictor = self.PREDICTOR
 
-        results = []
-        assert len(tasks) == 1
-        task = tasks[0]
-        image_url = self._get_image_url(task)
-        image_path = self.get_local_path(image_url)
+            results = []
+            assert len(tasks) == 1
+            task = tasks[0]
+            image_url = self._get_image_url(task)
+            image_path = self.get_local_path(image_url)
 
-        if kwargs.get('context') is None:
-            return []
-        
-        # image = cv2.imread(f"./{split}")
-        image = cv2.imread(image_path)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        predictor.set_image(image)
-        
-        prompt_type = kwargs['context']['result'][0]['type']
-        original_height = kwargs['context']['result'][0]['original_height']
-        original_width = kwargs['context']['result'][0]['original_width']
+            if kwargs.get('context') is None:
+                return []
 
+            # image = cv2.imread(f"./{split}")
+            image = cv2.imread(image_path)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            predictor.set_image(image)
 
-        if prompt_type == 'keypointlabels':
-            # getting x and y coordinates of the keypoint
-            x = kwargs['context']['result'][0]['value']['x'] * original_width / 100
-            y = kwargs['context']['result'][0]['value']['y'] * original_height / 100
-            output_label = kwargs['context']['result'][0]['value']['labels'][0]
+            prompt_type = kwargs['context']['result'][0]['type']
+            original_height = kwargs['context']['result'][0]['original_height']
+            original_width = kwargs['context']['result'][0]['original_width']
 
 
-            masks, scores, logits = predictor.predict(
-                point_coords=np.array([[x, y]]),
-                # box=np.array([x.cpu() for x in bbox[:4]]),
-                point_labels=np.array([1]),
-                multimask_output=False,
-            )
+            if prompt_type == 'keypointlabels':
+                    # getting x and y coordinates of the keypoint
+                    x = kwargs['context']['result'][0]['value']['x'] * original_width / 100
+                    y = kwargs['context']['result'][0]['value']['y'] * original_height / 100
+                    output_label = kwargs['context']['result'][0]['value']['labels'][0]
 
 
-        if prompt_type == 'rectanglelabels':
+                    masks, scores, logits = predictor.predict(
+                        point_coords=np.array([[x, y]]),
+                        # box=np.array([x.cpu() for x in bbox[:4]]),
+                        point_labels=np.array([1]),
+                        multimask_output=False,
+                    )
 
 
-            x = kwargs['context']['result'][0]['value']['x'] * original_width / 100
-            y = kwargs['context']['result'][0]['value']['y'] * original_height / 100
-            w = kwargs['context']['result'][0]['value']['width'] * original_width / 100
-            h = kwargs['context']['result'][0]['value']['height'] * original_height / 100
+            elif prompt_type == 'rectanglelabels':
+                    x = kwargs['context']['result'][0]['value']['x'] * original_width / 100
+                    y = kwargs['context']['result'][0]['value']['y'] * original_height / 100
+                    w = kwargs['context']['result'][0]['value']['width'] * original_width / 100
+                    h = kwargs['context']['result'][0]['value']['height'] * original_height / 100
 
-            output_label = kwargs['context']['result'][0]['value']['rectanglelabels'][0]
+                    output_label = kwargs['context']['result'][0]['value']['rectanglelabels'][0]
 
-            masks, scores, logits = predictor.predict(
-                # point_coords=np.array([[x, y]]),
-                box=np.array([x, y, x+w, y+h]),
-                point_labels=np.array([1]),
-                multimask_output=False,
-            )
+                    masks, scores, logits = predictor.predict(
+                        # point_coords=np.array([[x, y]]),
+                        box=np.array([x, y, x+w, y+h]),
+                        point_labels=np.array([1]),
+                        multimask_output=False,
+                    )
 
 
-        mask = masks[0].astype(np.uint8) # each mask has shape [H, W]
-        # converting the mask from the model to RLE format which is usable in Label Studio
+            mask = masks[0].astype(np.uint8) # each mask has shape [H, W]
+            # converting the mask from the model to RLE format which is usable in Label Studio
 
-        # 找到轮廓
-        contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # 找到轮廓
+            contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
 
 
 
-        # 计算外接矩形
+            # 计算外接矩形
 
 
-        if self.out_bbox:
-            new_contours = []
-            for contour in contours:
-                new_contours.extend(list(contour))
-            new_contours = np.array(new_contours)
-            x, y, w, h = cv2.boundingRect(new_contours)
-            print(x, y, w, h)
-            results.append({
-                'from_name': self.from_name_RectangleLabels,
-                'to_name': self.to_name_RectangleLabels,
-                'type': 'rectanglelabels',
-                'value': {
-                    'rectanglelabels': [output_label],
-                    'x': float(x) / original_width * 100,
-                    'y': float(y) / original_height * 100,
-                    'width': float(w) / original_width * 100,
-                    'height': float(h) / original_height * 100,
-                },
-                "id": ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase + string.digits)), # creates a random ID for your label every time
-            })
+            if self.out_bbox:
+                new_contours = []
+                for contour in contours:
+                    new_contours.extend(list(contour))
+                new_contours = np.array(new_contours)
+                x, y, w, h = cv2.boundingRect(new_contours)
+                print(x, y, w, h)
+                results.append({
+                    'from_name': self.from_name_RectangleLabels,
+                    'to_name': self.to_name_RectangleLabels,
+                    'type': 'rectanglelabels',
+                    'value': {
+                        'rectanglelabels': [output_label],
+                        'x': float(x) / original_width * 100,
+                        'y': float(y) / original_height * 100,
+                        'width': float(w) / original_width * 100,
+                        'height': float(h) / original_height * 100,
+                    },
+                    "id": ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase + string.digits)), # creates a random ID for your label every time
+                })
 
 
-        if self.out_poly:
+            if self.out_poly:
 
-            points_list = []
-            for contour in contours:
-                points = []
-                for point in contour:
-                    x, y = point[0]
-                    points.append([float(x)/original_width*100, float(y)/original_height * 100])
-                points_list.extend(points)
+                points_list = []
+                for contour in contours:
+                    points = []
+                    for point in contour:
+                        x, y = point[0]
+                        points.append([float(x)/original_width*100, float(y)/original_height * 100])
+                    points_list.extend(points)
 
-            # interval = points_list.__len__()//128
+                # interval = points_list.__len__()//128
 
-            # points_list = points_list[::points_list.__len__()//40]
-            results.append({
-                "from_name": self.from_name_PolygonLabels,
-                "to_name": self.to_name_PolygonLabels,
-                "original_width": original_width,
-                "original_height": original_height,
-                # "image_rotation": 0,
-                "value": {
-                    "points": points_list,
-                    "polygonlabels": [output_label],
-                },
-                "type": "polygonlabels",
-                "id": ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase + string.digits)), # creates a random ID for your label every time
-                "readonly": False,
-            })
+                # points_list = points_list[::points_list.__len__()//40]
+                results.append({
+                    "from_name": self.from_name_PolygonLabels,
+                    "to_name": self.to_name_PolygonLabels,
+                    "original_width": original_width,
+                    "original_height": original_height,
+                    # "image_rotation": 0,
+                    "value": {
+                        "points": points_list,
+                        "polygonlabels": [output_label],
+                    },
+                    "type": "polygonlabels",
+                    "id": ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase + string.digits)), # creates a random ID for your label every time
+                    "readonly": False,
+                })
 
 
-        if self.out_mask:
-            mask = mask * 255
-            rle = brush.mask2rle(mask)
+            if self.out_mask:
+                mask = mask * 255
+                rle = brush.mask2rle(mask)
 
-            results.append({
-                "from_name": self.from_name_BrushLabels,
-                "to_name": self.to_name_BrushLabels,
-                # "original_width": width,
-                # "original_height": height,
-                # "image_rotation": 0,
-                "value": {
-                    "format": "rle",
-                    "rle": rle,
-                    "brushlabels": [output_label],
-                },
-                "type": "brushlabels",
-                "id": ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase + string.digits)), # creates a random ID for your label every time
-                "readonly": False,
-            })
+                results.append({
+                    "from_name": self.from_name_BrushLabels,
+                    "to_name": self.to_name_BrushLabels,
+                    # "original_width": width,
+                    # "original_height": height,
+                    # "image_rotation": 0,
+                    "value": {
+                        "format": "rle",
+                        "rle": rle,
+                        "brushlabels": [output_label],
+                    },
+                    "type": "brushlabels",
+                    "id": ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase + string.digits)), # creates a random ID for your label every time
+                    "readonly": False,
+                })
 
-        return [{'result': results}]
+            return [{'result': results}]
 
 
 def json_load(file, int_keys=False):
-    with io.open(file, encoding='utf8') as f:
-        data = json.load(f)
-        if int_keys:
-            return {int(k): v for k, v in data.items()}
-        else:
-            return data
+        with io.open(file, encoding='utf8') as f:
+                data = json.load(f)
+                return {int(k): v for k, v in data.items()} if int_keys else data

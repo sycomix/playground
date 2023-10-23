@@ -96,13 +96,13 @@ class SpiralOut(AbstractPermuter):
         for c in range(1, size//2+1):
             step_mult += 1
             # steps left
-            for k in range(step_mult):
+            for _ in range(step_mult):
                 i = i - 1
                 j = j
                 idx.append(indices[i, j])
 
             # step down
-            for k in range(step_mult):
+            for _ in range(step_mult):
                 i = i
                 j = j + 1
                 idx.append(indices[i, j])
@@ -110,19 +110,19 @@ class SpiralOut(AbstractPermuter):
             step_mult += 1
             if c < size//2:
                 # step right
-                for k in range(step_mult):
+                for _ in range(step_mult):
                     i = i + 1
                     j = j
                     idx.append(indices[i, j])
 
                 # step up
-                for k in range(step_mult):
+                for _ in range(step_mult):
                     i = i
                     j = j - 1
                     idx.append(indices[i, j])
             else:
                 # end reached
-                for k in range(step_mult-1):
+                for _ in range(step_mult-1):
                     i = i + 1
                     idx.append(indices[i, j])
 
@@ -156,13 +156,13 @@ class SpiralIn(AbstractPermuter):
         for c in range(1, size//2+1):
             step_mult += 1
             # steps left
-            for k in range(step_mult):
+            for _ in range(step_mult):
                 i = i - 1
                 j = j
                 idx.append(indices[i, j])
 
             # step down
-            for k in range(step_mult):
+            for _ in range(step_mult):
                 i = i
                 j = j + 1
                 idx.append(indices[i, j])
@@ -170,19 +170,19 @@ class SpiralIn(AbstractPermuter):
             step_mult += 1
             if c < size//2:
                 # step right
-                for k in range(step_mult):
+                for _ in range(step_mult):
                     i = i + 1
                     j = j
                     idx.append(indices[i, j])
 
                 # step up
-                for k in range(step_mult):
+                for _ in range(step_mult):
                     i = i
                     j = j - 1
                     idx.append(indices[i, j])
             else:
                 # end reached
-                for k in range(step_mult-1):
+                for _ in range(step_mult-1):
                     i = i + 1
                     idx.append(indices[i, j])
 

@@ -17,8 +17,7 @@ def parse_args():
     parser.add_argument(
         '--image-root-url', help='root URL path where images will be hosted, e.g.: http://example.com/images', default='/data/local-files/?d=')
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def new_task(out_type, root_url, file_name):
@@ -63,8 +62,8 @@ def create_bbox(annotation, categories, from_name, image_height, image_width, to
     label = categories[int(annotation['category_id'])]
     x, y, width, height = annotation['bbox']
     x, y, width, height = float(x), float(y), float(width), float(height)
-    item = {
-        "id": uuid.uuid4().hex[0:10],
+    return {
+        "id": uuid.uuid4().hex[:10],
         "type": "rectanglelabels",
         "value": {
             "x": x / image_width * 100.0,
@@ -80,7 +79,6 @@ def create_bbox(annotation, categories, from_name, image_height, image_width, to
         "original_width": image_width,
         "original_height": image_height,
     }
-    return item
 
 
 def convert_coco_to_ls(input_file,
@@ -102,7 +100,7 @@ def convert_coco_to_ls(input_file,
         image_root_url (str, optional): Image path prefix. Defaults to '/data/local-files/?d='.
     """
     tasks = {}  # image_id => task
-    print(f'Reading COCO notes and categories from', input_file)
+    print('Reading COCO notes and categories from', input_file)
     with open(input_file, encoding='utf8') as f:
         coco = json.load(f)
 
@@ -130,7 +128,7 @@ def convert_coco_to_ls(input_file,
     # flags for labeling config composing
     bbox = False
     bbox_once = False
-    rectangles_from_name = from_name + '_rectangles'
+    rectangles_from_name = f'{from_name}_rectangles'
     tags = {}
 
     # create tasks
@@ -141,7 +139,7 @@ def convert_coco_to_ls(input_file,
     for i, annotation in enumerate(coco['annotations']):
         bbox |= 'bbox' in annotation  # if bbox
         if bbox and not bbox_once:
-            tags.update({rectangles_from_name: 'RectangleLabels'})
+            tags[rectangles_from_name] = 'RectangleLabels'
             bbox_once = True
 
         # read image sizes
@@ -172,7 +170,7 @@ def convert_coco_to_ls(input_file,
     generate_label_config(categories, tags, to_name,
                           from_name, label_config_file)
 
-    if len(tasks) > 0:
+    if tasks:
         tasks = [tasks[key] for key in sorted(tasks.keys())]
         print('Saving Label Studio JSON to', out_file)
         with open(out_file, 'w') as out:

@@ -106,9 +106,9 @@ if __name__ == '__main__':
         for k, v in args.kwargs:
             if v.isdigit():
                 param[k] = int(v)
-            elif v == 'True' or v == 'true':
+            elif v in ['True', 'true']:
                 param[k] = True
-            elif v == 'False' or v == 'False':
+            elif v == 'False':
                 param[k] = False
             elif isfloat(v):
                 param[k] = float(v)
